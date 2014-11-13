@@ -299,6 +299,7 @@ static u16 chandef_to_chanspec(struct brcmu_d11inf *d11inf,
 	primary_offset = ch->center_freq1 - ch->chan->center_freq;
 	switch (ch->width) {
 	case NL80211_CHAN_WIDTH_20:
+	case NL80211_CHAN_WIDTH_20_NOHT:
 		ch_inf.bw = BRCMU_CHAN_BW_20;
 		WARN_ON(primary_offset != 0);
 		break;
@@ -323,6 +324,10 @@ static u16 chandef_to_chanspec(struct brcmu_d11inf *d11inf,
 				ch_inf.sb = BRCMU_CHAN_SB_LU;
 		}
 		break;
+	case NL80211_CHAN_WIDTH_80P80:
+	case NL80211_CHAN_WIDTH_160:
+	case NL80211_CHAN_WIDTH_5:
+	case NL80211_CHAN_WIDTH_10:
 	default:
 		WARN_ON_ONCE(1);
 	}
@@ -333,6 +338,7 @@ static u16 chandef_to_chanspec(struct brcmu_d11inf *d11inf,
 	case IEEE80211_BAND_5GHZ:
 		ch_inf.band = BRCMU_CHAN_BAND_5G;
 		break;
+	case IEEE80211_BAND_60GHZ:
 	default:
 		WARN_ON_ONCE(1);
 	}
@@ -4045,24 +4051,24 @@ brcmf_cfg80211_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
 
 static int
 brcmf_cfg80211_del_station(struct wiphy *wiphy, struct net_device *ndev,
-			   const u8 *mac)
+			   struct station_del_parameters *params)
 {
 	struct brcmf_cfg80211_info *cfg = wiphy_to_cfg(wiphy);
 	struct brcmf_scb_val_le scbval;
 	struct brcmf_if *ifp = netdev_priv(ndev);
 	s32 err;
 
-	if (!mac)
+	if (!params->mac)
 		return -EFAULT;
 
-	brcmf_dbg(TRACE, "Enter %pM\n", mac);
+	brcmf_dbg(TRACE, "Enter %pM\n", params->mac);
 
 	if (ifp->vif == cfg->p2p.bss_idx[P2PAPI_BSSCFG_DEVICE].vif)
 		ifp = cfg->p2p.bss_idx[P2PAPI_BSSCFG_PRIMARY].vif->ifp;
 	if (!check_vif_up(ifp->vif))
 		return -EIO;
 
-	memcpy(&scbval.ea, mac, ETH_ALEN);
+	memcpy(&scbval.ea, params->mac, ETH_ALEN);
 	scbval.val = cpu_to_le32(WLAN_REASON_DEAUTH_LEAVING);
 	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SCB_DEAUTHENTICATE_FOR_REASON,
 				     &scbval, sizeof(scbval));
